@@ -10,12 +10,13 @@
 
 local Utilities = require("./AI/USER_AI/Util")
 
-local State = { IDLE = 0, FOLLOW = 1 }
+local State = { IDLE = 0, FOLLOW = 1, CHASE = 2, ATTACK = 3 }
 
 local Homunculus = {
     ID = 0,                    -- Homunculus ID
     OwnerID = 0,               -- Owner's ID
     CurrentState = State.IDLE, -- State of homunculus. Defaults to IDLE.
+    Target = 0,                -- Current homunculus target
     DestX = 0,                 -- Destination X coordinate. Used in movement functionality.
     DestY = 0                  -- Destination Y coordinate. Used in movement functinoality.
 }
@@ -56,15 +57,119 @@ local function ProcessFollowState()
 end
 
 --[[
+    Process homunculus actions in chase state.
+
+    @return nil
+]]
+local function ProcessChaseState()
+    if Homunculus.Target ~= 0 then
+        if not Util.IsDead(Homunculus.Target) then
+            local targetX, targetY = Util.GetPosition(Homunculus.Target)
+            local homunX, homunY = Util.GetPosition(Homunculus.ID)
+            if Util.GetDistance(targetX, targetY, homunX, homunY) > 1 then
+                if not Util.IsMoving(Homunculus.ID) then
+                    Move(Homunculus.ID, targetX, targetY)
+                end
+            else
+                Homunculus.CurrentState = State.ATTACK
+            end
+        else
+            Homunculus.Target = 0
+            Homunculus.CurrentState = State.IDLE
+        end
+    else
+        Homunculus.CurrentState = State.IDLE
+    end
+end
+
+--[[
+    Process homunculus actions in attack state.
+
+    @return nil
+]]
+local function ProcessAttackState()
+    if Homunculus.Target ~= 0 then
+        if not Util.IsDead(Homunculus.Target) then
+            local targetX, targetY = Util.GetPosition(Homunculus.Target)
+            local homunX, homunY = Util.GetPosition(Homunculus.ID)
+            if Util.GetDistance(targetX, targetY, homunX, homunY) <= 1 then
+                Attack(Homunculus.ID, Homunculus.Target)
+            else
+                Homunculus.CurrentState = State.CHASE
+            end
+        else
+            Homunculus.Target = 0
+            Homunculus.CurrentState = State.IDLE
+        end
+    else
+        Homunculus.CurrentState = State.IDLE
+    end
+end
+
+--[[
+    Looks for a new target.
+
+    @return nil
+]]
+local function GetNextTarget()
+    -- Before we process state, lets ensure the homunculus or owner do not need rescued.
+    local nearbyActors = GetActors()
+    for _, actor in ipairs(nearbyActors) do
+        if actor ~= Homunculus.ID and actor ~= Homunculus.OwnerID then
+            if IsMonster(actor) and not Utilities.IsDead(actor) then
+                if Util.GetTarget(actor) == Homunculus.OwnerID then
+                    local actorX, actorY = Util.GetPosition(actor)
+                    local homunX, homunY = Util.GetPosition(Homunculus.ID)
+
+                    Homunculus.Target = actor
+                    if Util.GetDistance(actorX, actorY, homunX, homunY) > 1 then
+                        Homunculus.CurrentState = State.CHASE
+                    else
+                        Homunculus.CurrentState = State.ATTACK
+                    end
+                    return
+                end
+            end
+        end
+    end
+
+    for _, actor in ipairs(nearbyActors) do
+        if actor ~= Homunculus.ID and actor ~= Homunculus.OwnerID then
+            if IsMonster(actor) and not Utilities.IsDead(actor) then
+                if Util.GetTarget(actor) == Homunculus.ID then
+                    local actorX, actorY = Util.GetPosition(actor)
+                    local homunX, homunY = Util.GetPosition(Homunculus.ID)
+
+                    Homunculus.Target = actor
+                    if Util.GetDistance(actorX, actorY, homunX, homunY) > 1 then
+                        Homunculus.CurrentState = State.CHASE
+                    else
+                        Homunculus.CurrentState = State.ATTACK
+                    end
+                    return
+                end
+            end
+        end
+    end
+end
+
+--[[
     Process the homunculus' current state
 
     @return nil
 ]]
 local function ProcessState()
+    -- Look for potential targets
+    GetNextTarget()
+
     if Homunculus.CurrentState == State.IDLE then
         ProcessIdleState()
     elseif Homunculus.CurrentState == State.FOLLOW then
         ProcessFollowState()
+    elseif Homunculus.CurrentState == State.CHASE then
+        ProcessChaseState()
+    elseif Homunculus.CurrentState == State.ATTACK then
+        ProcessAttackState()
     end
 end
 

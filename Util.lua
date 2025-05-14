@@ -25,6 +25,15 @@ ClientVar = {
     V_MAXSP = 11
 }
 
+Motion = {
+    STAND = 0,
+    MOVE = 1,
+    ATTACK = 2,
+    DEAD = 3,
+    SIT = 6,
+    ATTACK2 = 9
+}
+
 --[[
         Calculate the birds-eye distance between two coordinates.
 
@@ -56,6 +65,36 @@ end
 ]]
 function Util.GetPosition(id)
     return GetV(ClientVar.V_POSITION, id)
+end
+
+--[[
+        Get whether or not an actor is dead.
+
+        @param id (number): In-game actor ID.
+        @return boolean: Returns true if the given actor is dead.
+]]
+function Util.IsDead(id)
+    return GetV(ClientVar.V_MOTION, id) == Motion.DEAD
+end
+
+--[[
+        Get the target of the specified actor.
+
+        @param id (number): In-game actor ID.
+        @return boolean: Returns id of the target.
+]]
+function Util.GetTarget(id)
+    return GetV(ClientVar.V_TARGET, id)
+end
+
+--[[
+        Get whether or not an actor is moving (walking).
+
+        @param id (number): In-game actor ID.
+        @return boolean: Returns true if the given actor is moving.
+]]
+function Util.IsMoving(id)
+    return GetV(ClientVar.V_MOTION, id) == 1
 end
 
 return Util
